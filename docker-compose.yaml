@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  api:
+    container_name: automatixes_api
+    build: .
+    restart: always
+    depends_on:
+      - redis
+      - automatixes-postgres
+    ports:
+      - "8080:8080"
+    volumes:
+      - automatixes_instances:/automatixes/instances
+    networks:
+      - automatixes-net
+    env_file:
+      - .env
+    expose:
+      - "8080"
+
+  frontend:
+    container_name: automatixes_frontend
+    image: evoapicloud/evolution-manager:latest
+    restart: always
+    ports:
+      - "3000:80"
+    volumes:
+      - ./manager-nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+      - ./automatixes-manager-dist:/usr/share/nginx/html:ro
+    networks:
+      - automatixes-net
+
+  redis:
+    container_name: automatixes_redis
+    image: redis:latest
+    restart: always
+    command: >
+      redis-server --port 6379 --appendonly yes
+    volumes:
+      - automatixes_redis:/data
+    networks:
+      automatixes-net:
+        aliases:
+          - redis
+          - automatixes-redis
+    expose:
+      - "6379"
+
+  automatixes-postgres:
+    container_name: automatixes_postgres
+    image: postgres:15
+    restart: always
+    env_file:
+      - .env
+    command:
+      - postgres
+      - -c
+      - max_connections=1000
+      - -c
+      - listen_addresses=*
+    environment:
+      - POSTGRES_DB=automatixes_db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      automatixes-net:
+        aliases:
+          - postgres
+          - automatixes-postgres
+    expose:
+      - "5432"
+
+volumes:
+  automatixes_instances:
+  automatixes_redis:
+  postgres_data:
+
+networks:
+  automatixes-net:
+    name: automatixes-net
+    driver: bridge
